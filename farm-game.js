@@ -18,7 +18,7 @@ import {
   playUnlockPlot,
   playClickSound
 } from "./farm-sounds.js";
-import { spawnFloatingText } from "./farm-overworld.js?v=61";
+import { spawnFloatingText } from "./farm-overworld.js?v=62";
 
 let currentCrops = [];
 let currentPlots = [];
@@ -231,7 +231,9 @@ window.handlePlotClick = function(plotId, state) {
     playActionBlocked();
     alert("🔒 Este bancal está bloqueado. Cosecha la cama de cultivo previa para desbloquear esta parcela.");
   } else if (state === 'empty') {
-    if (currentRole === 'admin' || currentRole === 'lider') {
+    const plot = currentPlots.find(p => p.id === plotId);
+    const isOwnPractice = plot && plot.isReal === false && currentUser && plot.ownerUid === currentUser.uid;
+    if (currentRole === 'admin' || currentRole === 'lider' || isOwnPractice) {
       const selectPlot = document.getElementById("plotSelect");
       if (selectPlot) selectPlot.value = plotId;
       const modal = document.getElementById("siembraModal");
@@ -322,7 +324,7 @@ window.executeFarmAction = async function(action, cropId, isAllowed, nextDateStr
       const isRain = confirm(`¿Fue riego por lluvia natural para ${crop.cropTypeName}?`);
       await logRiego(cropId, { isRain, user: currentUser });
       playWatering();
-      spawnFloatingText(window.innerWidth / 2, window.innerHeight / 2 - 50, "💧 +10 XP • +5 Monedas", "#4fc3f7");
+      spawnFloatingText("💧 +10 XP • +5 Monedas", window.innerWidth / 2, window.innerHeight / 2 - 50, "#4fc3f7");
 
       // Disparar evento de celebración
       window.dispatchEvent(new CustomEvent('huerta:celebrate', {
@@ -339,7 +341,7 @@ window.executeFarmAction = async function(action, cropId, isAllowed, nextDateStr
       if (!product) return;
       await logFertilizacion(cropId, { product, user: currentUser });
       playFertilizing();
-      spawnFloatingText(window.innerWidth / 2, window.innerHeight / 2 - 50, "🍃 +15 XP • +10 Monedas", "#81c784");
+      spawnFloatingText("🍃 +15 XP • +10 Monedas", window.innerWidth / 2, window.innerHeight / 2 - 50, "#81c784");
 
       window.dispatchEvent(new CustomEvent('huerta:celebrate', {
         detail: {
@@ -358,7 +360,7 @@ window.executeFarmAction = async function(action, cropId, isAllowed, nextDateStr
 
       if (result.plotUnlocked) {
         playUnlockPlot();
-        spawnFloatingText(window.innerWidth / 2, window.innerHeight / 2 - 50, "🔓 ¡NUEVO BANCAL DESBLOQUEADO! +50 XP", "#ffd54f");
+        spawnFloatingText("🔓 ¡NUEVO BANCAL DESBLOQUEADO! +50 XP", window.innerWidth / 2, window.innerHeight / 2 - 50, "#ffd54f");
         window.dispatchEvent(new CustomEvent('huerta:celebrate', {
           detail: {
             kind: 'desbloqueo',
@@ -369,7 +371,7 @@ window.executeFarmAction = async function(action, cropId, isAllowed, nextDateStr
         await awardUserGamification(currentUser.uid, 50, 25);
       } else {
         playHarvest();
-        spawnFloatingText(window.innerWidth / 2, window.innerHeight / 2 - 50, "🧺 +30 XP • +15 Monedas", "#ffd54f");
+        spawnFloatingText("🧺 +30 XP • +15 Monedas", window.innerWidth / 2, window.innerHeight / 2 - 50, "#ffd54f");
         window.dispatchEvent(new CustomEvent('huerta:celebrate', {
           detail: {
             kind: 'cosecha',

@@ -3,7 +3,7 @@
 //  huerta.js — Lógica de Interfaz de Usuario y Controladores
 // ══════════════════════════════════════════════════════════════════════════
 
-import { auth, db } from "./firebase-config.js?v=61";
+import { auth, db } from "./firebase-config.js?v=62";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 import {
@@ -24,11 +24,11 @@ import {
   awardUserGamification,
   createPracticePlot,
   assignIndividualRealPlot
-} from "./huerta-service.js?v=61";
-import { uploadOrCompressPhoto } from "./image-utils.js?v=61";
-import { renderFarmGame } from "./farm-game.js?v=61";
-import { renderOverworldMap } from "./farm-overworld.js?v=61";
-import { initCelebrationOverlay } from "./celebration-overlay.js?v=61";
+} from "./huerta-service.js?v=62";
+import { uploadOrCompressPhoto } from "./image-utils.js?v=62";
+import { renderFarmGame } from "./farm-game.js?v=62";
+import { renderOverworldMap } from "./farm-overworld.js?v=62";
+import { initCelebrationOverlay } from "./celebration-overlay.js?v=62";
 
 function showGameAlert(message, icon = "🌱", title = "Green Force") {
   if (typeof window.showGameToast === "function") {
@@ -61,6 +61,7 @@ const siembraForm = document.getElementById("siembraForm");
 // Inicialización de la aplicación
 document.addEventListener("DOMContentLoaded", () => {
   initCelebrationOverlay();
+  applyGameModeLayout(activeView === "juego");
 
   onAuthStateChanged(auth, async (user) => {
     if (user) {
@@ -144,6 +145,7 @@ async function loadHuertaData() {
     const userUid = currentUser ? currentUser.uid : null;
     window.currentUserGlobal = currentUser;
     window.switchHuertaViewModeGlobal = switchViewTab;
+    window.switchHuertaViewMode = switchViewTab;
 
     const [types, plots, crops, schoolCrops, personalCrops, schoolPlots, personalPlots] = await Promise.all([
       getCropTypes(),
@@ -174,6 +176,7 @@ async function loadHuertaData() {
           personalCrops,
           schoolPlots,
           personalPlots,
+          cropTypes: cropTypesList,
           user: currentUser,
           role: userRole,
           onSelectZone: (zone) => {
@@ -601,8 +604,22 @@ function switchViewTab(view) {
     if (btnClassic) btnClassic.classList.add("active");
   }
 
+  applyGameModeLayout(view === "juego");
+
   if (currentUser) {
     saveUserViewPreference(currentUser.uid, view);
+  }
+}
+
+// Modo juego a pantalla completa: el mapa ocupa todo el viewport, detrás del header y del menú inferior
+function applyGameModeLayout(isGame) {
+  document.documentElement.classList.toggle("huerta-game-mode", isGame);
+  document.body.classList.toggle("huerta-game-mode", isGame);
+  if (isGame) {
+    // Si el mapa se renderizó estando oculto (vista clásica), recentrar con el tamaño real
+    requestAnimationFrame(() => {
+      if (typeof window.resetCameraView === "function") window.resetCameraView({ silent: true });
+    });
   }
 }
 

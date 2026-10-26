@@ -20,8 +20,9 @@ import {
   logCosecha,
   awardUserGamification,
   createPracticePlot,
-  createCrop
-} from "./huerta-service.js?v=61";
+  createCrop,
+  DEFAULT_CROP_TYPES
+} from "./huerta-service.js?v=62";
 
 let onSelectZoneCallback = null;
 let onRefreshDataCallback = null;
@@ -30,6 +31,8 @@ let currentSchoolCrops = [];
 let currentPersonalCrops = [];
 let currentSchoolPlots = [];
 let currentPersonalPlots = [];
+let currentCropTypes = [];
+let isPlantingInProgress = false;
 
 // Coordenadas Predeterminadas de los 4 Edificios Principales en el mapa 1200x1000
 const DEFAULT_BUILDING_LAYOUT = {
@@ -85,6 +88,7 @@ export function renderOverworldMap(container, {
   personalCrops = [],
   schoolPlots = [],
   personalPlots = [],
+  cropTypes = [],
   user,
   role,
   onSelectZone,
@@ -96,6 +100,7 @@ export function renderOverworldMap(container, {
   currentPersonalCrops = personalCrops || [];
   currentSchoolPlots = schoolPlots || [];
   currentPersonalPlots = personalPlots || [];
+  currentCropTypes = cropTypes || [];
 
   if (!container) return;
 
@@ -151,6 +156,7 @@ export function renderOverworldMap(container, {
         <button class="map-ctrl-btn btn-zoom-ctrl" onclick="window.mapZoomOut()" title="Alejar Cámara">➖</button>
         <button class="map-ctrl-btn btn-zoom-ctrl" onclick="window.resetCameraView()" title="Centrar Vista">🎯</button>
         <button class="map-ctrl-btn" id="btnToggleEditMode" onclick="window.toggleMapEditMode()" title="Mover / Reubicar Edificios">🏗️</button>
+        <button class="map-ctrl-btn" onclick="document.getElementById('huertaSettingsModal')?.classList.add('active')" title="Sonido y animaciones">⚙️</button>
       </div>
 
       <!-- BANNER SUPERIOR DEL MODO EDICIÓN -->
@@ -261,7 +267,7 @@ export function renderOverworldMap(container, {
             </div>
             ${schoolPendingCount > 0 ? `<div class="iso-crate-badge pulse-bounce">🧺 ${schoolPendingCount} pendientes</div>` : ''}
             <div class="iso-building-sprite school-sprite">
-              <img src="assets/images/farm/building_school.webp?v=61" class="iso-building-sprite-img" alt="IE Barro Blanco" draggable="false" />
+              <img src="assets/images/farm/building_school.webp?v=62" class="iso-building-sprite-img" alt="IE Barro Blanco" draggable="false" />
             </div>
             <div class="building-title-plaque">🌾 Huerta Escolar • Entrar</div>
 
@@ -278,7 +284,7 @@ export function renderOverworldMap(container, {
             </div>
             ${personalPendingCount > 0 ? `<div class="iso-crate-badge farm-crate pulse-bounce">🪴 ${personalPendingCount} pendientes</div>` : ''}
             <div class="iso-building-sprite ranch-sprite">
-              <img src="assets/images/farm/building_house.webp?v=61" class="iso-building-sprite-img" alt="Mi Granja" draggable="false" />
+              <img src="assets/images/farm/building_house.webp?v=62" class="iso-building-sprite-img" alt="Mi Granja" draggable="false" />
             </div>
             <div class="building-title-plaque">👩‍🌾 Mi Parcela • Entrar</div>
 
@@ -294,7 +300,7 @@ export function renderOverworldMap(container, {
               <i class="fas fa-lock"></i> COMPOSTERA
             </div>
             <div class="iso-building-sprite compost-sprite">
-              <img src="assets/images/farm/building_compost.webp?v=61" class="iso-building-sprite-img" alt="Compostera" draggable="false" />
+              <img src="assets/images/farm/building_compost.webp?v=62" class="iso-building-sprite-img" alt="Compostera" draggable="false" />
             </div>
             <div class="building-title-plaque" style="background: #4a5568; border-color: #a0aec0;">🔒 Nivel 5: Abonos</div>
           </div>
@@ -307,7 +313,7 @@ export function renderOverworldMap(container, {
               <i class="fas fa-lock"></i> MERCADO VERDE
             </div>
             <div class="iso-building-sprite market-sprite">
-              <img src="assets/images/farm/building_market.webp?v=61" class="iso-building-sprite-img" alt="Mercado Verde" draggable="false" />
+              <img src="assets/images/farm/building_market.webp?v=62" class="iso-building-sprite-img" alt="Mercado Verde" draggable="false" />
             </div>
             <div class="building-title-plaque" style="background: #4a5568; border-color: #a0aec0;">🔒 Nivel 10: Tienda</div>
           </div>
@@ -336,23 +342,26 @@ export function renderOverworldMap(container, {
             <span class="dialog-hint">💧 Riego • 🍃 Abono • 🧺 Cosecha</span>
           </div>
 
-          <!-- ACORDEÓN DESPLEGABLE DE SIEMBRA ("uno escoger que va sembrar de un acordeón") -->
-          <div class="planting-accordion-drawer" id="plantingAccordionDrawer" style="display: none;">
-            <div class="accordion-drawer-header">
-              <div class="accordion-drawer-title">
-                <span>🌱 Sembrar en:</span>
-                <strong id="accordionTargetPlotTitle" style="color: #ffd54f;">Bancal</strong>
+          <!-- Cuerpo desplazable: acordeón de semillas + camas comparten un único scroll -->
+          <div class="dialog-scroll-body" id="dialogScrollBody">
+            <!-- ACORDEÓN DESPLEGABLE DE SIEMBRA ("uno escoger que va sembrar de un acordeón") -->
+            <div class="planting-accordion-drawer" id="plantingAccordionDrawer" style="display: none;">
+              <div class="accordion-drawer-header">
+                <div class="accordion-drawer-title">
+                  <span>🌱 Sembrar en:</span>
+                  <strong id="accordionTargetPlotTitle" style="color: #ffd54f;">Bancal</strong>
+                </div>
+                <button class="accordion-close-btn" onclick="window.closePlantingAccordion()">✖️ Cerrar</button>
               </div>
-              <button class="accordion-close-btn" onclick="window.closePlantingAccordion()">✖️ Cerrar</button>
+              <div class="seeds-catalog-grid" id="seedsCatalogGrid">
+                <!-- Semillas inyectadas dinámicamente -->
+              </div>
             </div>
-            <div class="seeds-catalog-grid" id="seedsCatalogGrid">
-              <!-- Semillas inyectadas dinámicamente -->
-            </div>
-          </div>
 
-          <!-- PARRILLA VISUAL DE CAMAS DE MADERA 2.5D -->
-          <div class="dialog-beds-visual-grid" id="dialogBedsGrid">
-            <!-- Camas generadas dinámicamente -->
+            <!-- PARRILLA VISUAL DE CAMAS DE MADERA 2.5D -->
+            <div class="dialog-beds-visual-grid" id="dialogBedsGrid">
+              <!-- Camas generadas dinámicamente -->
+            </div>
           </div>
 
           <div class="game-dialog-footer">
@@ -444,17 +453,21 @@ window.openFarmBuildingModal = function(zone) {
   let html = '';
   const nowMs = Date.now();
 
-  if (isSchool) {
-    const totalPlots = (currentPlots && currentPlots.length > 0) ? currentPlots : [
-      { id: 'p1', name: 'Bancal A1 - Hortalizas' },
-      { id: 'p2', name: 'Bancal A2 - Aromáticas' },
-      { id: 'p3', name: 'Bancal B1 - Legumbres' },
-      { id: 'p4', name: 'Bancal B2 - Frutales' },
-      { id: 'p5', name: 'Bancal C1 - Semillero' },
-      { id: 'p6', name: 'Bancal C2 - Compostera' }
-    ];
+  const drawer = document.getElementById("plantingAccordionDrawer");
+  if (drawer) drawer.style.display = "none";
 
-    totalPlots.forEach((plot, index) => {
+  if (isSchool) {
+    // Solo bancales reales de Firestore: sembrar en IDs inventados crea cultivos huérfanos
+    if (!currentPlots || currentPlots.length === 0) {
+      html = `
+        <div class="visual-planter-bed" style="grid-column: 1 / -1; text-align: center; padding: 20px;">
+          <span style="font-size: 2.4rem;">🏫</span>
+          <p style="color: #cbd5e0; margin: 8px 0 0;">Aún no hay bancales registrados en la huerta escolar. Un docente o líder debe crearlos.</p>
+        </div>
+      `;
+    }
+
+    currentPlots.forEach((plot, index) => {
       const crop = currentCrops.find(c => c.plotId === plot.id && c.status !== 'cosechado' && c.status !== 'perdido');
       html += renderVisualBedCard(plot, crop, index, nowMs);
     });
@@ -469,7 +482,7 @@ window.openFarmBuildingModal = function(zone) {
               <span class="visual-bed-status-pill" style="color: #ffd54f;">Desbloqueada</span>
             </div>
             <div class="planter-box-container">
-              <img src="assets/images/farm/garden_bed.webp?v=61" class="planter-box-texture-bg" alt="Cajón de madera" draggable="false" />
+              <img src="assets/images/farm/garden_bed.webp?v=62" class="planter-box-texture-bg" alt="Cajón de madera" draggable="false" />
               <div class="empty-bed-action-zone">
                 <span style="font-size: 2.2rem;">🪴</span>
                 <button class="btn-open-planting-accordion" onclick="window.quickActivatePracticePlot(${i})">
@@ -494,6 +507,24 @@ window.openFarmBuildingModal = function(zone) {
 };
 
 function renderVisualBedCard(plot, crop, index, nowMs) {
+  if (!crop && plot.gameStatus === 'bloqueada') {
+    return `
+      <div class="visual-planter-bed bed-locked">
+        <div class="visual-bed-header">
+          <span class="visual-bed-title">${plot.name || `Bancal #${index + 1}`}</span>
+          <span class="visual-bed-status-pill" style="color: #a0aec0;">🔒 Bloqueado</span>
+        </div>
+        <div class="planter-box-container">
+          <img src="assets/images/farm/garden_bed.webp?v=62" class="planter-box-texture-bg" alt="Cajón de madera" draggable="false" style="filter: grayscale(0.8) brightness(0.6);" />
+          <div class="empty-bed-action-zone">
+            <span style="font-size: 2rem;">🔒</span>
+            <small style="color: #e2e8f0; text-align: center; padding: 0 10px;">Cosecha el bancal anterior para desbloquearlo</small>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   if (crop) {
     const plantedMs = crop.plantedDate ? crop.plantedDate.toMillis() : nowMs;
     const harvestMs = crop.expectedHarvestDate ? crop.expectedHarvestDate.toMillis() : (plantedMs + 30 * 86400000);
@@ -518,7 +549,7 @@ function renderVisualBedCard(plot, crop, index, nowMs) {
           <span class="visual-bed-status-pill">${statusText} • ${Math.round(growthRatio * 100)}%</span>
         </div>
         <div class="planter-box-container">
-          <img src="assets/images/farm/garden_bed.webp?v=61" class="planter-box-texture-bg" alt="Cajón de madera" draggable="false" />
+          <img src="assets/images/farm/garden_bed.webp?v=62" class="planter-box-texture-bg" alt="Cajón de madera" draggable="false" />
           <div class="crop-growth-avatar">
             <span class="crop-big-emoji">${stageIcon}</span>
             <span class="crop-variety-label">${crop.cropTypeName}</span>
@@ -528,10 +559,10 @@ function renderVisualBedCard(plot, crop, index, nowMs) {
           <div class="dialog-progress-fill" style="width: ${Math.round(growthRatio * 100)}%;"></div>
         </div>
         <div class="dialog-bed-actions">
-          <button class="bed-action-btn btn-action-water" onclick="window.onMapDirectAction(event, 'riego', '${crop.id}')">
+          <button class="bed-action-btn btn-action-water ${isWaterDue ? '' : 'disabled-btn'}" onclick="window.onMapDirectAction(event, 'riego', '${crop.id}')">
             💧 Regar
           </button>
-          <button class="bed-action-btn btn-action-fert" onclick="window.onMapDirectAction(event, 'fertilizacion', '${crop.id}')">
+          <button class="bed-action-btn btn-action-fert ${isFertDue ? '' : 'disabled-btn'}" onclick="window.onMapDirectAction(event, 'fertilizacion', '${crop.id}')">
             🍃 Abonar
           </button>
           ${isReady ? `
@@ -550,7 +581,7 @@ function renderVisualBedCard(plot, crop, index, nowMs) {
           <span class="visual-bed-status-pill" style="color: #a5d6a7;">Tierra Fértil</span>
         </div>
         <div class="planter-box-container">
-          <img src="assets/images/farm/garden_bed.webp?v=61" class="planter-box-texture-bg" alt="Cajón de madera" draggable="false" />
+          <img src="assets/images/farm/garden_bed.webp?v=62" class="planter-box-texture-bg" alt="Cajón de madera" draggable="false" />
           <div class="empty-bed-action-zone">
             <span style="font-size: 2.2rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));">🪴</span>
             <button class="btn-open-planting-accordion" onclick="window.openPlantingAccordion('${plot.id}', '${plot.name || `Bancal #${index + 1}`}')">
@@ -575,24 +606,17 @@ window.openPlantingAccordion = function(plotId, plotName) {
   if (!drawer || !grid) return;
   if (titleEl) titleEl.textContent = plotName || "Bancal Seleccionado";
 
-  const availableSeeds = [
-    { id: "zanahoria", name: "Zanahoria", icon: "🥕", days: 75, water: 2 },
-    { id: "lechuga", name: "Lechuga", icon: "🥬", days: 45, water: 2 },
-    { id: "tomate", name: "Tomate", icon: "🍅", days: 90, water: 2 },
-    { id: "cilantro", name: "Cilantro", icon: "🌿", days: 40, water: 2 },
-    { id: "fresa", name: "Fresa", icon: "🍓", days: 60, water: 2 },
-    { id: "rabano", name: "Rábano", icon: "🪴", days: 30, water: 2 },
-    { id: "albahaca", name: "Albahaca", icon: "🌱", days: 35, water: 2 },
-    { id: "pimenton", name: "Pimentón", icon: "🫑", days: 80, water: 2 }
-  ];
+  // Las semillas salen del catálogo real de Firestore: createCrop rechaza IDs que no existen en cropTypes
+  const availableSeeds = currentCropTypes.length > 0 ? currentCropTypes : DEFAULT_CROP_TYPES;
 
   let seedsHtml = '';
   availableSeeds.forEach(seed => {
+    const safeName = String(seed.name || '').replace(/'/g, "\\'");
     seedsHtml += `
-      <div class="seed-option-card" onclick="window.quickDirectPlant('${seed.id}', '${plotId}', '${seed.name}')">
-        <span class="seed-card-icon">${seed.icon}</span>
+      <div class="seed-option-card" onclick="window.quickDirectPlant('${seed.id}', '${plotId}', '${safeName}')">
+        <span class="seed-card-icon">${seed.icon || '🌱'}</span>
         <span class="seed-card-name">${seed.name}</span>
-        <span class="seed-card-meta">⏱️ ${seed.days}d • 💧 c/${seed.water}d</span>
+        <span class="seed-card-meta">⏱️ ${seed.daysToHarvest || '?'}d • 💧 c/${seed.wateringIntervalDays || 2}d</span>
         <button class="btn-plant-this-seed">🌱 Sembrar</button>
       </div>
     `;
@@ -600,7 +624,8 @@ window.openPlantingAccordion = function(plotId, plotName) {
 
   grid.innerHTML = seedsHtml;
   drawer.style.display = "block";
-  drawer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const scrollBody = document.getElementById("dialogScrollBody");
+  if (scrollBody) scrollBody.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
 window.closePlantingAccordion = function() {
@@ -618,6 +643,8 @@ window.quickDirectPlant = async function(cropTypeId, plotId, seedName) {
     }
     return;
   }
+  if (isPlantingInProgress) return;
+  isPlantingInProgress = true;
 
   try {
     const drawer = document.getElementById("plantingAccordionDrawer");
@@ -654,6 +681,8 @@ window.quickDirectPlant = async function(cropTypeId, plotId, seedName) {
   } catch (err) {
     console.error("Error al sembrar desde acordeón:", err);
     window.showGameToast("No se pudo sembrar: " + err.message, "⚠️", "Error");
+  } finally {
+    isPlantingInProgress = false;
   }
 };
 
@@ -1022,21 +1051,25 @@ function getFencedHuertaGarden3D(cropsList, plotsList, scope) {
 //  MOTOR DE CÁMARA 2.5D (PAN, ZOOM Y PINCH TÁCTIL)
 // ══════════════════════════════════════════════════════════════════════════
 
+// Elementos de interfaz sobre el mapa: tocarlos nunca debe arrastrar la cámara
+const CAMERA_IGNORE_SELECTOR = '.farm-building-modal-overlay, .top-heroes-hud-bar, .map-hud-controls, .edit-mode-banner, .hud-quest-tracker';
+let hasCameraInitialized = false;
+let hasWindowCameraListeners = false;
+
 function setupCameraControls() {
   const viewport = document.getElementById("overworldViewport");
   const stage = document.getElementById("worldCameraStage");
   if (!viewport || !stage) return;
 
-  const vpWidth = viewport.clientWidth || 380;
-  const vpHeight = viewport.clientHeight || 520;
-
-  cameraState.scale = Math.min(vpWidth / 580, 0.95);
-  cameraState.x = (vpWidth - (1200 * cameraState.scale)) / 2;
-  cameraState.y = (vpHeight - (1000 * cameraState.scale)) / 2;
-
+  // Conservar la posición de cámara entre re-renderizados (p. ej. tras sembrar o regar)
+  if (!hasCameraInitialized && viewport.clientWidth > 0) {
+    centerCameraOnWorld(viewport);
+    hasCameraInitialized = true;
+  }
   applyCameraTransform();
 
   viewport.addEventListener("pointerdown", (e) => {
+    if (e.target.closest(CAMERA_IGNORE_SELECTOR)) return;
     if (cameraState.isEditMode && e.target.closest('.iso-building-structure')) {
       return;
     }
@@ -1046,20 +1079,47 @@ function setupCameraControls() {
     viewport.classList.add("is-panning");
   });
 
+  setupPinchZoom(viewport);
+
+  if (hasWindowCameraListeners) return;
+  hasWindowCameraListeners = true;
+
   window.addEventListener("pointermove", (e) => {
     if (!cameraState.isDragging) return;
+    const vp = document.getElementById("overworldViewport");
+    if (!vp) return;
     cameraState.x = e.clientX - cameraState.startX;
     cameraState.y = e.clientY - cameraState.startY;
-    clampCameraBounds(vpWidth, vpHeight);
+    clampCameraBounds(vp.clientWidth, vp.clientHeight);
     applyCameraTransform();
   });
 
   window.addEventListener("pointerup", () => {
     if (cameraState.isDragging) {
       cameraState.isDragging = false;
-      viewport.classList.remove("is-panning");
+      const vp = document.getElementById("overworldViewport");
+      if (vp) vp.classList.remove("is-panning");
     }
   });
+
+  window.addEventListener("resize", () => {
+    const vp = document.getElementById("overworldViewport");
+    if (!vp || vp.clientWidth === 0) return;
+    clampCameraBounds(vp.clientWidth, vp.clientHeight);
+    applyCameraTransform();
+  });
+}
+
+function centerCameraOnWorld(viewport) {
+  const vpWidth = viewport.clientWidth || 380;
+  const vpHeight = viewport.clientHeight || 520;
+  cameraState.scale = Math.max(0.55, Math.min(vpWidth / 580, 0.95));
+  cameraState.x = (vpWidth - (1200 * cameraState.scale)) / 2;
+  cameraState.y = (vpHeight - (1000 * cameraState.scale)) / 2;
+  clampCameraBounds(vpWidth, vpHeight);
+}
+
+function setupPinchZoom(viewport) {
 
   viewport.addEventListener("touchstart", (e) => {
     if (e.touches.length === 2) {
@@ -1121,16 +1181,13 @@ window.mapZoomOut = function() {
   playClickSound();
 };
 
-window.resetCameraView = function() {
+window.resetCameraView = function({ silent = false } = {}) {
   const viewport = document.getElementById("overworldViewport");
-  if (!viewport) return;
-  const vpWidth = viewport.clientWidth || 380;
-  const vpHeight = viewport.clientHeight || 520;
-  cameraState.scale = Math.min(vpWidth / 580, 0.95);
-  cameraState.x = (vpWidth - (1200 * cameraState.scale)) / 2;
-  cameraState.y = (vpHeight - (1000 * cameraState.scale)) / 2;
+  if (!viewport || viewport.clientWidth === 0) return;
+  centerCameraOnWorld(viewport);
+  hasCameraInitialized = true;
   applyCameraTransform();
-  playClickSound();
+  if (!silent) playClickSound();
 };
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1322,36 +1379,63 @@ window.onMapDirectAction = async function(evt, action, cropId) {
     return;
   }
 
+  const crop = [...currentSchoolCrops, ...currentPersonalCrops].find(c => c.id === cropId);
+  if (!crop) return;
+
+  // El juego respeta los intervalos reales de cada especie (no se gana XP regando de más)
+  const nowMs = Date.now();
+  const dueSoonMs = nowMs + 43200000;
+  if (action === 'riego' && !(crop.nextWateringDue && crop.nextWateringDue.toMillis() <= dueSoonMs)) {
+    playActionBlocked();
+    const next = crop.nextWateringDue ? new Date(crop.nextWateringDue.toMillis()).toLocaleDateString() : 'N/A';
+    window.showGameToast(`Aún no necesita riego. Próximo: ${next}`, "⏳", "Labor no requerida");
+    return;
+  }
+  if (action === 'fertilizacion' && !(crop.nextFertilizingDue && crop.nextFertilizingDue.toMillis() <= dueSoonMs)) {
+    playActionBlocked();
+    const next = crop.nextFertilizingDue ? new Date(crop.nextFertilizingDue.toMillis()).toLocaleDateString() : 'N/A';
+    window.showGameToast(`Aún no necesita abono. Próximo: ${next}`, "⏳", "Labor no requerida");
+    return;
+  }
+
   try {
     const rect = evt.currentTarget.getBoundingClientRect();
     const clickX = rect.left + rect.width / 2;
     const clickY = rect.top;
 
     if (action === 'riego') {
+      await logRiego(cropId, { notes: "Riego rápido desde el mapa 2.5D", user });
       playWatering();
       spawnFloatingText("💧 +10 XP", clickX, clickY, "#4fc3f7");
-      await logRiego(cropId, "Riego rápido desde el mapa 2.5D", user.displayName || "Estudiante");
       await awardUserGamification(user.uid, 10, 5);
       window.showGameToast("¡Cultivo regado con éxito! +10 XP", "💧", "Labor Registrada");
     } else if (action === 'fertilizacion') {
+      await logFertilizacion(cropId, { product: "Compost escolar", notes: "Abono rápido desde el mapa 2.5D", user });
       playFertilizing();
       spawnFloatingText("🍃 +15 XP", clickX, clickY, "#81c784");
-      await logFertilizacion(cropId, "Abono rápido desde el mapa 2.5D", "Compost escolar", user.displayName || "Estudiante");
       await awardUserGamification(user.uid, 15, 8);
       window.showGameToast("¡Abono orgánico aplicado! +15 XP", "🍃", "Labor Registrada");
     } else if (action === 'cosecha') {
-      playHarvest();
-      spawnFloatingText("🧺 +50 XP ¡Cosechado!", clickX, clickY, "#ffd54f");
-      await logCosecha(cropId, 1, "kg", "Cosecha desde el mapa 2.5D", user.displayName || "Estudiante");
+      const result = await logCosecha(cropId, { quantity: 1, unit: "kg", isFinalHarvest: true, notes: "Cosecha desde el mapa 2.5D", user });
+      if (result && result.plotUnlocked) {
+        playUnlockPlot();
+        spawnFloatingText("🔓 ¡Nuevo bancal! +50 XP", clickX, clickY, "#ffd54f");
+        window.showGameToast(`¡${result.unlockedPlotName || 'Nuevo bancal'} desbloqueado!`, "🔓", "Logro");
+      } else {
+        playHarvest();
+        spawnFloatingText("🧺 +50 XP ¡Cosechado!", clickX, clickY, "#ffd54f");
+        window.showGameToast("¡Cosecha recolectada con éxito! +50 XP", "🧺", "Gran Cosecha");
+      }
       await awardUserGamification(user.uid, 50, 25);
-      window.showGameToast("¡Cosecha recolectada con éxito! +50 XP", "🧺", "Gran Cosecha");
     }
 
     if (onRefreshDataCallback) {
-      setTimeout(onRefreshDataCallback, 600);
+      await onRefreshDataCallback();
+      setTimeout(() => window.openFarmBuildingModal(selectedPoiZone === 'colegio' ? 'colegio' : 'individual'), 300);
     }
   } catch (err) {
     console.error("Error en labor directa del mapa:", err);
+    window.showGameToast("No se pudo registrar la labor: " + err.message, "⚠️", "Error");
   }
 };
 

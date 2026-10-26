@@ -8386,3 +8386,127 @@ body[data-theme] {
   width: 100%;
   box-shadow: 0 2px 6px rgba(0,0,0,0.4);
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   HUERTA — MODO JUEGO A PANTALLA COMPLETA
+   El mapa ocupa todo el viewport y queda detrás del header (70px) y del
+   menú inferior flotante; el HUD flota en las zonas libres.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+html.huerta-game-mode,
+body.huerta-game-mode {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body.huerta-game-mode {
+  --game-top-safe: calc(70px + 10px);
+  --game-bottom-safe: calc(95px + env(safe-area-inset-bottom));
+}
+
+body.huerta-game-mode .page-wrapper {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* backdrop-filter en .page-card crearía un bloque contenedor y rompería position: fixed */
+body.huerta-game-mode .page-card {
+  max-width: none;
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+
+body.huerta-game-mode .view-segmented-control,
+body.huerta-game-mode .scope-segmented-control {
+  display: none !important;
+}
+
+body.huerta-game-mode #farmGameSection {
+  position: fixed;
+  inset: 0;
+  padding: 0 !important;
+  z-index: 1;
+}
+
+body.huerta-game-mode #farmGameContainer {
+  height: 100%;
+  overflow-y: auto;
+}
+
+body.huerta-game-mode .top-heroes-game-viewport {
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+body.huerta-game-mode .top-heroes-hud-bar {
+  position: absolute;
+  top: var(--game-top-safe);
+  left: 10px;
+  right: 10px;
+  border-radius: 16px;
+  border: 2px solid var(--hud-border-gold, rgba(217, 169, 78, 0.7)) !important;
+}
+
+body.huerta-game-mode .map-hud-controls {
+  top: calc(var(--game-top-safe) + 66px);
+  right: 10px;
+}
+
+body.huerta-game-mode .edit-mode-banner {
+  top: calc(var(--game-top-safe) + 66px);
+  left: 10px;
+}
+
+body.huerta-game-mode .hud-quest-tracker {
+  bottom: var(--game-bottom-safe);
+  left: 10px;
+}
+
+/* El diálogo del edificio vive entre el header y el menú inferior */
+body.huerta-game-mode .farm-building-modal-overlay {
+  padding: var(--game-top-safe) 10px var(--game-bottom-safe);
+}
+
+body.huerta-game-mode .farm-building-dialog-box {
+  max-height: 100%;
+}
+
+/* Vista tablero (farm-game.js) también respeta las zonas del header y menú */
+body.huerta-game-mode .farm-scene-wrapper {
+  padding-top: var(--game-top-safe);
+  padding-bottom: var(--game-bottom-safe);
+  min-height: 100%;
+}
+
+/* Cuerpo desplazable del diálogo: semillas + camas en un único scroll */
+.dialog-scroll-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+.dialog-scroll-body .dialog-beds-visual-grid {
+  max-height: none;
+  overflow: visible;
+}
+
+.dialog-scroll-body .planting-accordion-drawer {
+  flex-shrink: 0;
+}
+
+.bed-action-btn.disabled-btn {
+  opacity: 0.5;
+  filter: grayscale(0.8);
+  cursor: not-allowed;
+}

@@ -538,6 +538,10 @@ export async function logCosecha(cropId, { quantity, unit = "unidades", isFinalH
     if (!cropSnap.exists()) throw new Error("Cultivo no encontrado");
     const cropData = cropSnap.data();
 
+    // Firestore exige todas las lecturas de la transacción antes de cualquier escritura
+    const plotRef = (isFinalHarvest && cropData.plotId) ? doc(db, "plots", cropData.plotId) : null;
+    const plotSnap = plotRef ? await transaction.get(plotRef) : null;
+
     transaction.set(doc(cosechasRef), {
       date: now,
       quantity: Number(quantity) || 1,
@@ -555,25 +559,25 @@ export async function logCosecha(cropId, { quantity, unit = "unidades", isFinalH
       updateData.status = 'cosechado';
 
       // Si tiene bancal asignado, actualizar estado del bancal y buscar el siguiente a desbloquear
-      if (cropData.plotId) {
-        const plotRef = doc(db, "plots", cropData.plotId);
-        const plotSnap = await transaction.get(plotRef);
+      if (plotSnap) {
         if (plotSnap.exists()) {
           const currentPlot = plotSnap.data();
           const currentOrder = currentPlot.order ?? 0;
-          
+          const currentScope = currentPlot.ownerScope || 'colegio';
+
           // El bancal actual vuelve a estar 'desbloqueada' (disponible para otra siembra)
           transaction.update(plotRef, {
             gameStatus: 'desbloqueada',
             updatedAt: serverTimestamp()
           });
 
-          // Buscar el bancal con orden consecutivo (order = currentOrder + 1)
+          // Buscar el bancal con orden consecutivo (order = currentOrder + 1) del mismo dueño
           const allPlotsSnap = await getDocs(collection(db, "plots"));
           let nextPlotDoc = null;
           allPlotsSnap.forEach(d => {
             const p = d.data();
-            if ((p.order ?? 0) === currentOrder + 1 && p.gameStatus === 'bloqueada') {
+            const sameOwner = (p.ownerScope || 'colegio') === currentScope && (p.ownerUid || null) === (currentPlot.ownerUid || null);
+            if (sameOwner && (p.order ?? 0) === currentOrder + 1 && p.gameStatus === 'bloqueada') {
               nextPlotDoc = { id: d.id, ref: doc(db, "plots", d.id), ...p };
             }
           });
