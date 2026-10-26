@@ -8510,3 +8510,355 @@ body.huerta-game-mode .farm-scene-wrapper {
   filter: grayscale(0.8);
   cursor: not-allowed;
 }
+
+/* Selector de semillas como hoja superpuesta: cubre las camas para que la elección sea evidente */
+.farm-building-dialog-box {
+  position: relative;
+}
+
+.farm-building-dialog-box .planting-accordion-drawer {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  z-index: 5;
+  border-radius: 17px;
+  display: flex;
+  flex-direction: column;
+  animation: seedSheetUp 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.farm-building-dialog-box .planting-accordion-drawer .seeds-catalog-grid {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+@keyframes seedSheetUp {
+  from { transform: translateY(40px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Bancales del mapa: vacío invita a sembrar, bloqueado se ve apagado */
+.iso-crop-bed-cell.bed-cell-empty .bed-sprite-crop {
+  font-size: 0.9rem;
+  opacity: 0.85;
+  animation: emptyBedPulse 1.8s ease-in-out infinite;
+}
+
+.iso-crop-bed-cell.bed-cell-locked {
+  filter: grayscale(0.9) brightness(0.7);
+}
+
+.iso-crop-bed-cell.bed-cell-locked .bed-sprite-crop {
+  font-size: 0.8rem;
+}
+
+@keyframes emptyBedPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   HUERTA — ACCIONES EN EL MUNDO (menú sobre el bancal + animaciones)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Bancales del mapa más grandes: el mapa se ve reducido en celular y deben poder tocarse */
+.iso-fenced-garden .fenced-garden-soil-field {
+  gap: 8px;
+}
+
+.iso-fenced-garden .iso-crop-bed-cell {
+  width: 66px;
+  height: 50px;
+  cursor: pointer;
+}
+
+.iso-fenced-garden .bed-sprite-crop {
+  font-size: 1.9rem;
+  transform-origin: 50% 100%;
+}
+
+.iso-crop-bed-cell.bed-cell-planted .bed-sprite-crop {
+  animation: plantSway 3.2s ease-in-out infinite;
+}
+
+.iso-crop-bed-cell.bed-cell-ready {
+  border-color: #ffd54f;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.7), 0 0 12px rgba(255, 213, 79, 0.7);
+}
+
+.iso-crop-bed-cell.bed-cell-selected {
+  border-color: #fff;
+  transform: translateY(-3px) scale(1.06);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35), 0 6px 14px rgba(0,0,0,0.5);
+}
+
+.iso-fenced-garden .mini-harvest-bubble {
+  pointer-events: none;
+  font-size: 1rem;
+  top: -14px;
+  right: -8px;
+}
+
+.bed-growth-bar {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 3px;
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.bed-growth-bar > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #7cb342, #ffd54f);
+}
+
+@keyframes plantSway {
+  0%, 100% { transform: rotate(-4deg); }
+  50% { transform: rotate(4deg); }
+}
+
+/* Reacciones del bancal */
+.iso-crop-bed-cell.bed-shake { animation: bedShake 0.45s ease; }
+.iso-crop-bed-cell.bed-wet { background: radial-gradient(ellipse at center, #3b2412 0%, #1f1208 70%, #120a03 100%); box-shadow: inset 0 2px 8px rgba(79, 195, 247, 0.55), 0 0 14px rgba(79, 195, 247, 0.6); }
+.iso-crop-bed-cell.bed-fertilized { box-shadow: inset 0 2px 8px rgba(129, 199, 132, 0.6), 0 0 14px rgba(129, 199, 132, 0.7); }
+.iso-crop-bed-cell.bed-harvested .bed-sprite-crop { animation: harvestPull 0.6s ease-in forwards; }
+.iso-crop-bed-cell.bed-planted-pop { animation: bedPop 0.5s 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+@keyframes bedShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+@keyframes harvestPull {
+  0% { transform: translateY(0) scale(1); }
+  40% { transform: translateY(6px) scale(0.9, 1.1); }
+  100% { transform: translateY(-30px) scale(1.3); opacity: 0; }
+}
+
+@keyframes bedPop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15, 0.9); }
+  100% { transform: scale(1); }
+}
+
+/* Menú flotante sobre el bancal */
+.bed-action-menu {
+  position: absolute;
+  z-index: 60;
+  background: linear-gradient(180deg, rgba(43, 26, 14, 0.97), rgba(23, 13, 6, 0.97));
+  border: 2px solid #d9a94e;
+  border-radius: 18px;
+  padding: 8px 10px 10px;
+  box-shadow: 0 10px 26px rgba(0,0,0,0.7), 0 0 14px rgba(217, 169, 78, 0.3);
+  animation: bedMenuPop 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  touch-action: manipulation;
+  cursor: default;
+}
+
+@keyframes bedMenuPop {
+  from { transform: scale(0.6) translateY(10px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.bed-menu-title {
+  font-family: var(--font-game, inherit);
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #ffd54f;
+  text-align: center;
+  margin-bottom: 6px;
+  white-space: nowrap;
+}
+
+.bed-menu-title small {
+  color: #a5d6a7;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.bed-menu-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.bed-menu-btn {
+  width: 58px;
+  height: 62px;
+  border-radius: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  transition: transform 0.12s;
+  font-family: inherit;
+}
+
+.bed-menu-btn:active { transform: scale(0.9); }
+.bed-menu-icon { font-size: 1.6rem; line-height: 1; }
+.bed-menu-caption { font-size: 0.66rem; font-weight: 800; color: #cbd5e0; }
+
+.bed-menu-btn.is-due {
+  border-color: #ffd54f;
+  background: radial-gradient(circle at 50% 35%, rgba(255, 213, 79, 0.35), rgba(255, 213, 79, 0.05));
+  animation: dueGlow 1.4s ease-in-out infinite;
+}
+
+.bed-menu-btn.is-due .bed-menu-caption { color: #ffd54f; }
+.bed-menu-btn.is-waiting { opacity: 0.55; filter: grayscale(0.6); }
+
+@keyframes dueGlow {
+  0%, 100% { box-shadow: 0 0 0 rgba(255, 213, 79, 0); }
+  50% { box-shadow: 0 0 12px rgba(255, 213, 79, 0.7); }
+}
+
+.bed-menu-stepper { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.bed-menu-stepper-label { font-size: 0.72rem; color: #cbd5e0; font-weight: 700; }
+.bed-menu-stepper-row { display: flex; align-items: center; gap: 8px; }
+
+.stepper-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border: 2px solid #8d5b36;
+  background: #3e2723;
+  color: #fff;
+  font-size: 1.3rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.stepper-value {
+  min-width: 30px;
+  text-align: center;
+  font-size: 1.3rem;
+  color: #ffd54f;
+}
+
+.stepper-confirm {
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 2px solid #ffd54f;
+  background: linear-gradient(180deg, #f9a825, #e65100);
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+/* Efectos (posicionados en el viewport del juego) */
+.world-fx {
+  position: absolute;
+  z-index: 55;
+  pointer-events: none;
+  transform: translate(-50%, 0);
+  line-height: 1;
+  will-change: transform, opacity;
+}
+
+.fx-float-text {
+  font-family: var(--font-game, inherit);
+  font-weight: 900;
+  font-size: 1rem;
+  white-space: nowrap;
+  text-shadow: 0 2px 0 #000, 0 0 6px rgba(0,0,0,0.8);
+  animation: fxFloatUp 1.3s ease-out forwards;
+}
+
+.fx-watering-can { font-size: 1.8rem; animation: fxCanTilt 1.3s ease-in-out forwards; }
+.fx-drop { font-size: 0.9rem; opacity: 0; animation: fxDropFall 0.7s ease-in forwards; }
+.fx-sprinkle { font-size: 0.95rem; opacity: 0; animation: fxSprinkle 0.9s ease-in forwards; }
+.fx-seed-drop { font-size: 1.3rem; animation: fxSeedDrop 0.6s cubic-bezier(0.55, 0, 1, 0.45) forwards; }
+.fx-sprout-pop { font-size: 1.8rem; animation: fxSproutPop 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+.fx-harvest-fly { font-size: 1.6rem; opacity: 0; animation: fxFlyToHud 1s cubic-bezier(0.5, -0.4, 0.7, 1) forwards; }
+.fx-xp-orb { font-size: 1.2rem; animation: fxFlyToHud 0.8s 0.1s cubic-bezier(0.5, -0.3, 0.7, 1) forwards; }
+
+@keyframes fxFloatUp {
+  0% { transform: translate(-50%, 0) scale(0.6); opacity: 0; }
+  15% { transform: translate(-50%, -8px) scale(1.15); opacity: 1; }
+  100% { transform: translate(-50%, -48px) scale(1); opacity: 0; }
+}
+
+@keyframes fxCanTilt {
+  0% { transform: translate(-50%, -10px) rotate(0deg); opacity: 0; }
+  20% { transform: translate(-50%, 0) rotate(-35deg); opacity: 1; }
+  80% { transform: translate(-50%, 0) rotate(-40deg); opacity: 1; }
+  100% { transform: translate(-50%, -10px) rotate(0deg); opacity: 0; }
+}
+
+@keyframes fxDropFall {
+  0% { transform: translate(-50%, 0); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translate(-50%, 34px) scale(0.6); opacity: 0; }
+}
+
+@keyframes fxSprinkle {
+  0% { transform: translate(-50%, -6px) rotate(0deg); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translate(-50%, 36px) rotate(var(--spin, 180deg)); opacity: 0; }
+}
+
+@keyframes fxSeedDrop {
+  0% { transform: translate(-50%, -20px); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: translate(-50%, 46px) scale(0.6); opacity: 0; }
+}
+
+@keyframes fxSproutPop {
+  0% { transform: translate(-50%, 10px) scale(0); opacity: 0; }
+  60% { transform: translate(-50%, -14px) scale(1.4); opacity: 1; }
+  100% { transform: translate(-50%, -24px) scale(1); opacity: 0; }
+}
+
+@keyframes fxFlyToHud {
+  0% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+  25% { transform: translate(-50%, -30px) scale(1.3); opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--dx, 0px)), var(--dy, -200px)) scale(0.5); opacity: 0.2; }
+}
+
+/* La píldora del HUD "recibe" la recompensa */
+.resource-pill.pill-bump { animation: pillBump 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+@keyframes pillBump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.25); box-shadow: 0 0 14px rgba(255, 213, 79, 0.9); }
+  100% { transform: scale(1); }
+}
+
+/* Texto flotante genérico usado por farm-game.js (antes no tenía estilos) */
+.floating-action-text {
+  position: fixed;
+  z-index: 99998;
+  pointer-events: none;
+  transform: translate(-50%, 0);
+  font-weight: 900;
+  font-size: 1.1rem;
+  white-space: nowrap;
+  text-shadow: 0 2px 0 #000, 0 0 6px rgba(0,0,0,0.8);
+  animation: fxFloatUp 1.3s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .iso-crop-bed-cell.bed-cell-planted .bed-sprite-crop,
+  .bed-menu-btn.is-due,
+  .world-fx {
+    animation-duration: 0.01ms !important;
+  }
+}
