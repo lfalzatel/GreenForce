@@ -8862,3 +8862,67 @@ body.huerta-game-mode .farm-scene-wrapper {
     animation-duration: 0.01ms !important;
   }
 }
+
+/* Etapa del cultivo en el menú del bancal */
+.bed-menu-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.bed-menu-stage strong {
+  font-size: 0.8rem;
+  color: #fff;
+}
+
+.bed-menu-stage > span {
+  font-size: 0.68rem;
+  color: #a5d6a7;
+  font-weight: 700;
+}
+
+.stage-timeline {
+  display: flex;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.stage-step {
+  font-size: 0.85rem;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  opacity: 0.45;
+  filter: grayscale(0.7);
+}
+
+.stage-step.is-done { opacity: 0.9; filter: none; border-color: #7cb342; }
+.stage-step.is-current {
+  opacity: 1;
+  filter: none;
+  border: 2px solid #ffd54f;
+  transform: scale(1.2);
+  box-shadow: 0 0 8px rgba(255, 213, 79, 0.6);
+}
+
+.stage-link {
+  width: 8px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.seed-card-method {
+  font-size: 0.62rem;
+  color: #a5d6a7;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.2;
+}

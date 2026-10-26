@@ -21,8 +21,9 @@ import {
   awardUserGamification,
   createPracticePlot,
   createCrop,
-  DEFAULT_CROP_TYPES
-} from "./huerta-service.js?v=63";
+  DEFAULT_CROP_TYPES,
+  getCropStageInfo
+} from "./huerta-service.js?v=64";
 
 let onSelectZoneCallback = null;
 let onRefreshDataCallback = null;
@@ -255,7 +256,7 @@ export function renderOverworldMap(container, {
             </div>
             ${pendingBadgeHtml('colegio')}
             <div class="iso-building-sprite school-sprite">
-              <img src="assets/images/farm/building_school.webp?v=63" class="iso-building-sprite-img" alt="IE Barro Blanco" draggable="false" />
+              <img src="assets/images/farm/building_school.webp?v=64" class="iso-building-sprite-img" alt="IE Barro Blanco" draggable="false" />
             </div>
             <div class="building-title-plaque">🌾 Huerta Escolar • Entrar</div>
 
@@ -272,7 +273,7 @@ export function renderOverworldMap(container, {
             </div>
             ${pendingBadgeHtml('individual')}
             <div class="iso-building-sprite ranch-sprite">
-              <img src="assets/images/farm/building_house.webp?v=63" class="iso-building-sprite-img" alt="Mi Granja" draggable="false" />
+              <img src="assets/images/farm/building_house.webp?v=64" class="iso-building-sprite-img" alt="Mi Granja" draggable="false" />
             </div>
             <div class="building-title-plaque">👩‍🌾 Mi Parcela • Entrar</div>
 
@@ -288,7 +289,7 @@ export function renderOverworldMap(container, {
               <i class="fas fa-lock"></i> COMPOSTERA
             </div>
             <div class="iso-building-sprite compost-sprite">
-              <img src="assets/images/farm/building_compost.webp?v=63" class="iso-building-sprite-img" alt="Compostera" draggable="false" />
+              <img src="assets/images/farm/building_compost.webp?v=64" class="iso-building-sprite-img" alt="Compostera" draggable="false" />
             </div>
             <div class="building-title-plaque" style="background: #4a5568; border-color: #a0aec0;">🔒 Nivel 5: Abonos</div>
           </div>
@@ -301,7 +302,7 @@ export function renderOverworldMap(container, {
               <i class="fas fa-lock"></i> MERCADO VERDE
             </div>
             <div class="iso-building-sprite market-sprite">
-              <img src="assets/images/farm/building_market.webp?v=63" class="iso-building-sprite-img" alt="Mercado Verde" draggable="false" />
+              <img src="assets/images/farm/building_market.webp?v=64" class="iso-building-sprite-img" alt="Mercado Verde" draggable="false" />
             </div>
             <div class="building-title-plaque" style="background: #4a5568; border-color: #a0aec0;">🔒 Nivel 10: Tienda</div>
           </div>
@@ -528,7 +529,7 @@ window.openFarmBuildingModal = function(zone) {
               <span class="visual-bed-status-pill" style="color: #ffd54f;">Desbloqueada</span>
             </div>
             <div class="planter-box-container">
-              <img src="assets/images/farm/garden_bed.webp?v=63" class="planter-box-texture-bg" alt="Cajón de madera" draggable="false" />
+              <img src="assets/images/farm/garden_bed.webp?v=64" class="planter-box-texture-bg" alt="Cajón de madera" draggable="false" />
               <div class="empty-bed-action-zone">
                 <span style="font-size: 2.2rem;">🪴</span>
                 <button class="btn-open-planting-accordion" onclick="window.quickActivatePracticePlot(${i})">
@@ -561,7 +562,7 @@ function renderVisualBedCard(plot, crop, index, nowMs) {
           <span class="visual-bed-status-pill" style="color: #a0aec0;">🔒 Bloqueado</span>
         </div>
         <div class="planter-box-container">
-          <img src="assets/images/farm/garden_bed.webp?v=63" class="planter-box-texture-bg" alt="Cajón de madera" draggable="false" style="filter: grayscale(0.8) brightness(0.6);" />
+          <img src="assets/images/farm/garden_bed.webp?v=64" class="planter-box-texture-bg" alt="Cajón de madera" draggable="false" style="filter: grayscale(0.8) brightness(0.6);" />
           <div class="empty-bed-action-zone">
             <span style="font-size: 2rem;">🔒</span>
             <small style="color: #e2e8f0; text-align: center; padding: 0 10px;">Cosecha el bancal anterior para desbloquearlo</small>
@@ -582,20 +583,19 @@ function renderVisualBedCard(plot, crop, index, nowMs) {
     const isFertDue = crop.nextFertilizingDue && crop.nextFertilizingDue.toMillis() <= nowMs + 43200000;
     const isReady = crop.status === 'listo_para_cosecha' || growthRatio >= 1.0;
 
-    let stageIcon = crop.cropTypeIcon || '🥬';
-    if (!isReady && growthRatio < 0.3) stageIcon = '🌱';
-    else if (!isReady && growthRatio < 0.6) stageIcon = '🌿';
+    const stageInfo = getCropStageInfo(crop, findCropType(crop.cropTypeId), nowMs);
+    const stageIcon = stageInfo.stage.icon;
 
-    const statusText = isReady ? '🧺 Cosecha Lista' : (isWaterDue ? '💧 Regar' : (isFertDue ? '🍃 Abonar' : '🌿 Creciendo'));
+    const statusText = isReady ? '🧺 Cosecha Lista' : (isWaterDue ? '💧 Regar' : (isFertDue ? '🍃 Abonar' : `${stageInfo.stage.icon} ${stageInfo.stage.name}`));
 
     return `
       <div class="visual-planter-bed">
         <div class="visual-bed-header">
           <span class="visual-bed-title">${plot.name || `Bancal #${index + 1}`}</span>
-          <span class="visual-bed-status-pill">${statusText} • ${Math.round(growthRatio * 100)}%</span>
+          <span class="visual-bed-status-pill">${statusText} • Sem. ${Math.min(stageInfo.week, stageInfo.totalWeeks)}/${stageInfo.totalWeeks}</span>
         </div>
         <div class="planter-box-container">
-          <img src="assets/images/farm/garden_bed.webp?v=63" class="planter-box-texture-bg" alt="Cajón de madera" draggable="false" />
+          <img src="assets/images/farm/garden_bed.webp?v=64" class="planter-box-texture-bg" alt="Cajón de madera" draggable="false" />
           <div class="crop-growth-avatar">
             <span class="crop-big-emoji">${stageIcon}</span>
             <span class="crop-variety-label">${crop.cropTypeName}</span>
@@ -627,7 +627,7 @@ function renderVisualBedCard(plot, crop, index, nowMs) {
           <span class="visual-bed-status-pill" style="color: #a5d6a7;">Tierra Fértil</span>
         </div>
         <div class="planter-box-container">
-          <img src="assets/images/farm/garden_bed.webp?v=63" class="planter-box-texture-bg" alt="Cajón de madera" draggable="false" />
+          <img src="assets/images/farm/garden_bed.webp?v=64" class="planter-box-texture-bg" alt="Cajón de madera" draggable="false" />
           <div class="empty-bed-action-zone">
             <span style="font-size: 2.2rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));">🪴</span>
             <button class="btn-open-planting-accordion" onclick="window.openPlantingAccordion('${plot.id}', '${plot.name || `Bancal #${index + 1}`}')">
@@ -641,6 +641,17 @@ function renderVisualBedCard(plot, crop, index, nowMs) {
 }
 
 let activePlantingPlotId = null;
+
+function findCropType(cropTypeId) {
+  return currentCropTypes.find(t => t.id === cropTypeId) || DEFAULT_CROP_TYPES.find(t => t.id === cropTypeId) || null;
+}
+
+function seedMethodLabel(seed) {
+  if (seed.method === 'trasplante') return `🌱 Plántula (semillero ${Math.round((seed.seedbedDays || 28) / 7)} sem.)`;
+  if (seed.method === 'colinos') return '🌱 Por colinos (hijuelos)';
+  const germ = seed.germinationDays;
+  return germ && germ[1] ? `🌰 Semilla directa • germina ${germ[0]}-${germ[1]}d` : '🌰 Semilla directa';
+}
 
 window.openPlantingAccordion = function(plotId, plotName) {
   playClickSound();
@@ -662,7 +673,8 @@ window.openPlantingAccordion = function(plotId, plotName) {
       <div class="seed-option-card" onclick="window.quickDirectPlant('${seed.id}', '${plotId}', '${safeName}')">
         <span class="seed-card-icon">${seed.icon || '🌱'}</span>
         <span class="seed-card-name">${seed.name}</span>
-        <span class="seed-card-meta">⏱️ ${seed.daysToHarvest || '?'}d • 💧 c/${seed.wateringIntervalDays || 2}d</span>
+        <span class="seed-card-meta">🧺 ~${Math.round((seed.daysToHarvest || 60) / 7)} semanas • 💧 c/${seed.wateringIntervalDays || 2}d</span>
+        <span class="seed-card-method">${seedMethodLabel(seed)}</span>
         <button class="btn-plant-this-seed">🌱 Sembrar</button>
       </div>
     `;
@@ -1067,9 +1079,8 @@ function getFencedHuertaGarden3D(cropsList, plotsList, scope) {
     const isFertDue = crop.nextFertilizingDue && crop.nextFertilizingDue.toMillis() <= nowMs + 43200000;
     const isReady = crop.status === 'listo_para_cosecha' || growthRatio >= 1.0;
 
-    if (isReady) stageIcon = crop.cropTypeIcon || '🥬';
-    else if (growthRatio >= 0.6) stageIcon = crop.cropTypeIcon || '🪴';
-    else if (growthRatio >= 0.2) stageIcon = '🌿';
+    const stageInfo = getCropStageInfo(crop, findCropType(crop.cropTypeId), nowMs);
+    stageIcon = stageInfo.stage.icon;
 
     if (isReady) {
       bubbleAction = 'cosecha';
@@ -1516,11 +1527,22 @@ window.openBedActionMenu = function(cropId, bedEl) {
   const pos = getPointInViewport(bedEl);
   if (!pos) return;
 
+  const info = getCropStageInfo(crop, findCropType(crop.cropTypeId));
+  const harvestDateStr = info.expectedHarvestDate.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+  const timelineHtml = info.stages.map((stage, i) => `
+    <span class="stage-step ${i < info.stageIndex || info.isReady ? 'is-done' : ''} ${i === info.stageIndex && !info.isReady ? 'is-current' : ''}" title="${stage.name} (hasta el día ${stage.untilDay})">${stage.icon}</span>
+  `).join('<span class="stage-link"></span>');
+
   const menu = document.createElement('div');
   menu.id = 'bedActionMenu';
   menu.className = 'bed-action-menu';
   menu.innerHTML = `
-    <div class="bed-menu-title">${crop.cropTypeIcon || '🌱'} ${crop.cropTypeName} <small>${Math.round(st.growthRatio * 100)}%</small></div>
+    <div class="bed-menu-title">${crop.cropTypeIcon || '🌱'} ${crop.cropTypeName}</div>
+    <div class="bed-menu-stage">
+      <strong>${info.stage.icon} ${info.stage.name}</strong>
+      <span>${info.isReady ? '¡Lista para cosechar!' : `Semana ${info.week} de ${info.totalWeeks} • cosecha ~${harvestDateStr}`}</span>
+      <div class="stage-timeline">${timelineHtml}</div>
+    </div>
     <div class="bed-menu-actions">
       <button class="bed-menu-btn ${st.isWaterDue ? 'is-due' : 'is-waiting'}" data-action="riego">
         <span class="bed-menu-icon">💧</span><span class="bed-menu-caption">${timeUntilLabel(crop.nextWateringDue)}</span>
@@ -1529,7 +1551,7 @@ window.openBedActionMenu = function(cropId, bedEl) {
         <span class="bed-menu-icon">🍃</span><span class="bed-menu-caption">${timeUntilLabel(crop.nextFertilizingDue)}</span>
       </button>
       <button class="bed-menu-btn ${st.isReady ? 'is-due' : 'is-waiting'}" data-action="cosecha">
-        <span class="bed-menu-icon">🧺</span><span class="bed-menu-caption">${st.isReady ? '¡Ya!' : `${Math.round(st.growthRatio * 100)}%`}</span>
+        <span class="bed-menu-icon">🧺</span><span class="bed-menu-caption">${st.isReady ? '¡Ya!' : `en ${info.daysLeft}d`}</span>
       </button>
     </div>
   `;
@@ -1609,7 +1631,7 @@ async function runBedAction(action, cropId, quantity = 1) {
     }
     const label = action === 'riego' ? `💧 ${timeUntilLabel(crop.nextWateringDue)}`
       : action === 'fertilizacion' ? `🍃 ${timeUntilLabel(crop.nextFertilizingDue)}`
-      : `🌿 ${Math.round(st.growthRatio * 100)}%`;
+      : `🧺 en ${getCropStageInfo(crop, findCropType(crop.cropTypeId)).daysLeft}d`;
     spawnWorldText(bedEl, `⏳ ${label}`, '#e2e8f0');
     return;
   }

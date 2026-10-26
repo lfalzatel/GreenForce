@@ -3,7 +3,7 @@
 //  huerta.js — Lógica de Interfaz de Usuario y Controladores
 // ══════════════════════════════════════════════════════════════════════════
 
-import { auth, db } from "./firebase-config.js?v=63";
+import { auth, db } from "./firebase-config.js?v=64";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 import {
@@ -24,11 +24,11 @@ import {
   awardUserGamification,
   createPracticePlot,
   assignIndividualRealPlot
-} from "./huerta-service.js?v=63";
-import { uploadOrCompressPhoto } from "./image-utils.js?v=63";
-import { renderFarmGame } from "./farm-game.js?v=63";
-import { renderOverworldMap, updateOverworldData, isOverworldRendered } from "./farm-overworld.js?v=63";
-import { initCelebrationOverlay } from "./celebration-overlay.js?v=63";
+} from "./huerta-service.js?v=64";
+import { uploadOrCompressPhoto } from "./image-utils.js?v=64";
+import { renderFarmGame } from "./farm-game.js?v=64";
+import { renderOverworldMap, updateOverworldData, isOverworldRendered } from "./farm-overworld.js?v=64";
+import { initCelebrationOverlay } from "./celebration-overlay.js?v=64";
 
 function showGameAlert(message, icon = "🌱", title = "Green Force") {
   if (typeof window.showGameToast === "function") {
@@ -472,9 +472,12 @@ function renderCropTypesCatalog() {
         <div class="catalog-body">
           <p><strong>💧 Riego:</strong> Cada ${item.wateringIntervalDays} días</p>
           <p><strong>🍃 Abono:</strong> Cada ${item.fertilizingIntervalDays || 'N/A'} días</p>
-          <p><strong>⏱️ Días a cosecha:</strong> ${item.daysToHarvest} días</p>
+          <p><strong>⏱️ A cosecha:</strong> ${item.daysToHarvest} días (~${Math.round(item.daysToHarvest / 7)} semanas)${item.harvestRangeDays ? ` • rango ${item.harvestRangeDays[0]}-${item.harvestRangeDays[1]} días` : ''}</p>
+          ${item.seedbedDays ? `<p><strong>🌱 Semillero previo:</strong> ${item.seedbedDays} días</p>` : ''}
           <p><strong>☀️ Sol:</strong> ${item.sunlight || 'Pleno sol'}</p>
+          ${item.stages ? `<p><strong>📈 Etapas:</strong> ${item.stages.map(st => `${st.icon} ${st.name} (hasta día ${st.untilDay})`).join(' → ')}</p>` : ''}
           ${item.notes ? `<p class="catalog-notes">${item.notes}</p>` : ''}
+          ${item.source ? `<p class="catalog-notes" style="opacity: 0.75;">📚 Fuente: ${item.source}</p>` : ''}
         </div>
       </div>
     `;

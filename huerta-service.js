@@ -21,97 +21,244 @@ import {
   runTransaction
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-// Catálogo por defecto de 8 especies típicas de huerta escolar
+// ──────────────────────────────────────────────────────────────
+//  Catálogo de especies con tiempos de CLIMA FRÍO
+//  IE Barro Blanco: vereda Barro Blanco, Rionegro (Oriente antioqueño),
+//  ~2.100 msnm y ~17 °C. En frío los ciclos van al extremo largo de cada rango.
+//
+//  - daysToHarvest: días desde que la planta queda en el bancal (siembra
+//    directa o trasplante) hasta la primera cosecha; es lo que usa el juego.
+//  - seedbedDays: días previos en semillero (solo especies de trasplante).
+//  - stages[].untilDay: día (desde la siembra en el bancal) en que termina la etapa.
+//  - source: de dónde sale el dato. Un docente puede ajustarlo en Firestore.
+// ──────────────────────────────────────────────────────────────
+
+// Subir este número cuando cambien los datos: los catálogos guardados se actualizan solos
+export const CROP_CATALOG_VERSION = 2;
+
 export const DEFAULT_CROP_TYPES = [
-  {
-    id: "zanahoria",
-    name: "Zanahoria",
-    scientificName: "Daucus carota",
-    wateringIntervalDays: 2,
-    fertilizingIntervalDays: 21,
-    daysToHarvest: 75,
-    sunlight: "pleno sol",
-    notes: "Requiere suelo suelto y profundo. Riego constante sin encharcar.",
-    icon: "🥕"
-  },
   {
     id: "lechuga",
     name: "Lechuga",
     scientificName: "Lactuca sativa",
+    method: "trasplante",
+    seedbedDays: 28,
+    germinationDays: [4, 7],
+    daysToHarvest: 45,
+    harvestRangeDays: [35, 50],
+    harvestMode: "unica",
     wateringIntervalDays: 2,
     fertilizingIntervalDays: 15,
-    daysToHarvest: 45,
     sunlight: "sombra parcial",
-    notes: "Cosechar preferiblemente en la mañana para conservar frescura.",
-    icon: "🥬"
+    icon: "🥬",
+    stages: [
+      { name: "Adaptación al trasplante", untilDay: 7, icon: "🌱" },
+      { name: "Crecimiento de hojas", untilDay: 30, icon: "🌿" },
+      { name: "Formación de cabeza", untilDay: 45, icon: "🥬" }
+    ],
+    notes: "Semillero de ~4 semanas (trasplantar con 4-5 hojas). En el bancal: 5 a 7 semanas. Cosechar en la mañana.",
+    source: "Ciclo de 30 (hoja), 35 (romana) y 43 días (batavia) en campo, evaluado en el Oriente antioqueño; se usa el extremo largo por clima frío."
   },
   {
-    id: "cilantro",
-    name: "Cilantro",
-    scientificName: "Coriandrum sativum",
+    id: "zanahoria",
+    name: "Zanahoria",
+    scientificName: "Daucus carota",
+    method: "directa",
+    seedbedDays: 0,
+    germinationDays: [10, 15],
+    daysToHarvest: 100,
+    harvestRangeDays: [90, 120],
+    harvestMode: "unica",
     wateringIntervalDays: 2,
-    fertilizingIntervalDays: 20,
-    daysToHarvest: 40,
+    fertilizingIntervalDays: 21,
     sunlight: "pleno sol",
-    notes: "Crecimiento rápido. Evitar sol abrasador constante.",
-    icon: "🌿"
+    icon: "🥕",
+    stages: [
+      { name: "Germinación (lenta)", untilDay: 15, icon: "🌰" },
+      { name: "Plántula y raleo", untilDay: 35, icon: "🌱" },
+      { name: "Crecimiento de follaje", untilDay: 60, icon: "🌿" },
+      { name: "Engrosamiento de raíz", untilDay: 100, icon: "🥕" }
+    ],
+    notes: "Siembra directa: no se trasplanta porque la raíz se deforma. Ralear a ~5 cm. Unas 14 semanas en clima frío.",
+    source: "70-90 días en referencias de clima templado; en clima frío andino se alarga a 90-120 días. Siembra directa obligatoria (cartillas de huertas comunitarias)."
   },
   {
     id: "rabano",
     name: "Rábano",
     scientificName: "Raphanus sativus",
+    method: "directa",
+    seedbedDays: 0,
+    germinationDays: [3, 5],
+    daysToHarvest: 30,
+    harvestRangeDays: [25, 35],
+    harvestMode: "unica",
     wateringIntervalDays: 2,
     fertilizingIntervalDays: 15,
-    daysToHarvest: 30,
     sunlight: "pleno sol",
-    notes: "Uno de los cultivos más rápidos. Ideal para primeros proyectos.",
-    icon: "🪴"
+    icon: "🪴",
+    stages: [
+      { name: "Germinación", untilDay: 5, icon: "🌰" },
+      { name: "Hojas verdaderas", untilDay: 14, icon: "🌱" },
+      { name: "Engrosamiento de raíz", untilDay: 30, icon: "🪴" }
+    ],
+    notes: "El cultivo más rápido de la huerta (~4 semanas). Si se pasa de tiempo se vuelve fibroso o picante.",
+    source: "Rango de referencia de 25-35 días para rábano de raíz redonda; siembra directa (no se trasplanta)."
+  },
+  {
+    id: "cilantro",
+    name: "Cilantro",
+    scientificName: "Coriandrum sativum",
+    method: "directa",
+    seedbedDays: 0,
+    germinationDays: [10, 15],
+    daysToHarvest: 50,
+    harvestRangeDays: [45, 60],
+    harvestMode: "continua",
+    wateringIntervalDays: 2,
+    fertilizingIntervalDays: 20,
+    sunlight: "pleno sol",
+    icon: "🌿",
+    stages: [
+      { name: "Germinación", untilDay: 15, icon: "🌰" },
+      { name: "Plántula", untilDay: 28, icon: "🌱" },
+      { name: "Desarrollo de hojas", untilDay: 50, icon: "🌿" }
+    ],
+    notes: "Siembra directa. Primer corte de hojas a ~7 semanas; se puede cortar 2-3 veces antes de que florezca.",
+    source: "Rango de referencia de 45-60 días para cosecha de hoja; germinación lenta (10-15 días) en suelos fríos."
   },
   {
     id: "tomate",
     name: "Tomate",
     scientificName: "Solanum lycopersicum",
+    method: "trasplante",
+    seedbedDays: 30,
+    germinationDays: [6, 10],
+    daysToHarvest: 90,
+    harvestRangeDays: [80, 100],
+    harvestMode: "continua",
     wateringIntervalDays: 2,
     fertilizingIntervalDays: 14,
-    daysToHarvest: 90,
     sunlight: "pleno sol",
-    notes: "Requiere tutorado (guías) y deshijado regular.",
-    icon: "🍅"
+    icon: "🍅",
+    stages: [
+      { name: "Adaptación al trasplante", untilDay: 10, icon: "🌱" },
+      { name: "Crecimiento y tutorado", untilDay: 35, icon: "🌿" },
+      { name: "Floración y cuajado", untilDay: 55, icon: "🌼" },
+      { name: "Llenado y maduración del fruto", untilDay: 90, icon: "🍅" }
+    ],
+    notes: "Semillero de ~1 mes. En frío conviene bajo cubierta. El fruto tarda 60-70 días de flor a cosecha; se cosecha por racimos varias semanas.",
+    source: "Manual de producción de tomate bajo invernadero: 60-70 días desde la antesis (flor) hasta cosecha; racimos florales cada ~1,5 semanas."
   },
   {
     id: "frijol",
     name: "Fríjol",
     scientificName: "Phaseolus vulgaris",
+    method: "directa",
+    seedbedDays: 0,
+    germinationDays: [5, 8],
+    daysToHarvest: 90,
+    harvestRangeDays: [70, 100],
+    harvestMode: "unica",
     wateringIntervalDays: 3,
     fertilizingIntervalDays: 25,
-    daysToHarvest: 60,
     sunlight: "pleno sol",
-    notes: "Fija nitrógeno en el suelo. Excelente para rotación de cultivo.",
-    icon: "🫘"
+    icon: "🫘",
+    stages: [
+      { name: "Germinación", untilDay: 8, icon: "🌰" },
+      { name: "Crecimiento vegetativo", untilDay: 35, icon: "🌱" },
+      { name: "Floración", untilDay: 50, icon: "🌼" },
+      { name: "Llenado de vainas", untilDay: 75, icon: "🫛" },
+      { name: "Maduración (grano seco)", untilDay: 90, icon: "🫘" }
+    ],
+    notes: "Fríjol arbustivo. Vaina verde desde ~10 semanas; grano seco ~13 semanas en clima frío. Fija nitrógeno: ideal para rotación.",
+    source: "Cenicafé (2025): 55-75 días a grano verde y 80-90 a grano seco en zona cafetera; en clima frío se toma el extremo largo."
   },
   {
     id: "cebolla",
     name: "Cebolla de Rama",
     scientificName: "Allium fistulosum",
+    method: "colinos",
+    seedbedDays: 0,
+    germinationDays: [0, 0],
+    daysToHarvest: 105,
+    harvestRangeDays: [90, 120],
+    harvestMode: "continua",
     wateringIntervalDays: 2,
     fertilizingIntervalDays: 20,
-    daysToHarvest: 70,
     sunlight: "pleno sol",
-    notes: "Resistente. Se puede cosechar por tallos dejando la raíz viva.",
-    icon: "🧅"
+    icon: "🧅",
+    stages: [
+      { name: "Enraizamiento del colino", untilDay: 20, icon: "🌱" },
+      { name: "Macollamiento (hijos)", untilDay: 70, icon: "🌿" },
+      { name: "Engrosamiento de tallos", untilDay: 105, icon: "🧅" }
+    ],
+    notes: "Se siembra por colinos (hijuelos), no por semilla. Primer corte a los 3-4 meses; luego cortes cada 2-3 meses dejando la raíz viva.",
+    source: "Rango de referencia de 90-120 días a primer corte para cebolla junca en clima frío; propagación vegetativa por colinos."
   },
   {
     id: "acelga",
     name: "Acelga",
     scientificName: "Beta vulgaris var. cicla",
+    method: "trasplante",
+    seedbedDays: 30,
+    germinationDays: [5, 8],
+    daysToHarvest: 60,
+    harvestRangeDays: [55, 75],
+    harvestMode: "continua",
     wateringIntervalDays: 2,
     fertilizingIntervalDays: 20,
-    daysToHarvest: 50,
     sunlight: "sombra parcial",
-    notes: "Permite cosechas continuas de hojas exteriores.",
-    icon: "🥬"
+    icon: "🥬",
+    stages: [
+      { name: "Adaptación al trasplante", untilDay: 10, icon: "🌱" },
+      { name: "Desarrollo de roseta", untilDay: 40, icon: "🌿" },
+      { name: "Hojas aprovechables", untilDay: 60, icon: "🥬" }
+    ],
+    notes: "Germina en 5-8 días. Rinde mejor en clima frío y templado. Se cosechan las hojas de afuera durante varios meses.",
+    source: "SENA, Huerta casera: El cultivo de la acelga (germinación 5-8 días, mejores rendimientos en clima frío); 60-90 días del trasplante a cosecha según guías de huerto escolar."
   }
 ];
+
+// Para catálogos guardados con la versión anterior: usar los datos actuales de la especie
+export function withCatalogDefaults(id, data = {}) {
+  const defaults = DEFAULT_CROP_TYPES.find(t => t.id === id);
+  if (!defaults) return { id, ...data };
+  const isOutdated = (data.catalogVersion || 1) < CROP_CATALOG_VERSION;
+  return isOutdated ? { ...data, ...defaults, catalogVersion: CROP_CATALOG_VERSION } : { ...defaults, ...data, id };
+}
+
+// Etapa actual de un cultivo a partir de sus fechas reales
+export function getCropStageInfo(crop, cropType, nowMs = Date.now()) {
+  const plantedMs = crop.plantedDate ? crop.plantedDate.toMillis() : nowMs;
+  const harvestMs = crop.expectedHarvestDate ? crop.expectedHarvestDate.toMillis() : plantedMs + ((cropType && cropType.daysToHarvest) || 60) * 86400000;
+  const totalDays = Math.max(1, Math.round((harvestMs - plantedMs) / 86400000));
+  const dayNumber = Math.max(0, Math.floor((nowMs - plantedMs) / 86400000));
+  const stages = (cropType && cropType.stages && cropType.stages.length) ? cropType.stages : [
+    { name: "Germinación", untilDay: totalDays * 0.2, icon: "🌱" },
+    { name: "Crecimiento", untilDay: totalDays * 0.6, icon: "🌿" },
+    { name: "Maduración", untilDay: totalDays, icon: (cropType && cropType.icon) || "🪴" }
+  ];
+  // Las etapas se escalan al ciclo real del cultivo (puede diferir del catálogo)
+  const catalogTotal = stages[stages.length - 1].untilDay || totalDays;
+  const scale = totalDays / catalogTotal;
+  const isReady = crop.status === 'listo_para_cosecha' || dayNumber >= totalDays;
+
+  let stageIndex = stages.findIndex(st => dayNumber < st.untilDay * scale);
+  if (stageIndex === -1) stageIndex = stages.length - 1;
+
+  return {
+    dayNumber,
+    totalDays,
+    week: Math.floor(dayNumber / 7) + 1,
+    totalWeeks: Math.ceil(totalDays / 7),
+    daysLeft: Math.max(0, totalDays - dayNumber),
+    isReady,
+    stageIndex,
+    stage: isReady ? { name: "Lista para cosechar", icon: (cropType && cropType.icon) || stages[stages.length - 1].icon } : stages[stageIndex],
+    stages: stages.map(st => ({ ...st, untilDay: Math.round(st.untilDay * scale) })),
+    expectedHarvestDate: new Date(harvestMs)
+  };
+}
 
 // Bancales por defecto con progresión de juego y ámbito institucional
 export const DEFAULT_PLOTS = [
@@ -128,15 +275,23 @@ export async function seedHuertaIfNeeded() {
     const cropTypesRef = collection(db, "cropTypes");
     const snapshot = await getDocs(cropTypesRef);
     
-    if (snapshot.empty) {
-      console.log("Precargando catálogo de especies iniciales para la huerta...");
-      for (const item of DEFAULT_CROP_TYPES) {
-        const docRef = doc(db, "cropTypes", item.id);
-        await setDoc(docRef, {
+    // Crear especies faltantes y actualizar las guardadas con una versión vieja del catálogo
+    // (las reglas solo permiten escribir a admin/líder; para el resto falla en silencio y
+    // getCropTypes igual devuelve los datos vigentes)
+    const storedVersions = {};
+    snapshot.forEach(d => { storedVersions[d.id] = d.data().catalogVersion || 1; });
+    for (const item of DEFAULT_CROP_TYPES) {
+      if (storedVersions[item.id] !== undefined && storedVersions[item.id] >= CROP_CATALOG_VERSION) continue;
+      const isNew = storedVersions[item.id] === undefined;
+      try {
+        await setDoc(doc(db, "cropTypes", item.id), {
           ...item,
-          createdAt: serverTimestamp(),
+          catalogVersion: CROP_CATALOG_VERSION,
+          ...(isNew ? { createdAt: serverTimestamp() } : {}),
           updatedAt: serverTimestamp()
-        });
+        }, { merge: true });
+      } catch (e) {
+        if (!isNew) break; // sin permisos de escritura: no insistir con el resto
       }
     }
 
@@ -165,7 +320,7 @@ export async function getCropTypes() {
   const querySnapshot = await getDocs(collection(db, "cropTypes"));
   const types = [];
   querySnapshot.forEach(doc => {
-    types.push({ id: doc.id, ...doc.data() });
+    types.push(withCatalogDefaults(doc.id, { id: doc.id, ...doc.data() }));
   });
   return types;
 }
@@ -376,7 +531,7 @@ export async function createCrop({ cropTypeId, plotId, quantity, notes, photo = 
   // Obtener especie para los intervalos
   const cropTypeDoc = await getDoc(doc(db, "cropTypes", cropTypeId));
   if (!cropTypeDoc.exists()) throw new Error("El tipo de cultivo no existe");
-  const cropType = cropTypeDoc.data();
+  const cropType = withCatalogDefaults(cropTypeId, cropTypeDoc.data());
 
   let plotName = null;
   let ownerScope = "colegio";
