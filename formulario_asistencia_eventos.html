@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Asistencia — Green Force</title>
-    <meta name="description" content="Formulario de control de asistencia a salidas pedagógicas del Grupo Ambiental Green Force.">
+    <title>Encuestas y Asistencia — Green Force</title>
+    <meta name="description" content="Encuesta de conciencia ambiental y control de asistencia a salidas pedagógicas del Grupo Ambiental Green Force.">
 
     <!-- PWA -->
     <link rel="manifest" href="manifest.json">
@@ -137,9 +137,42 @@
 
             <!-- Encabezado de la sección -->
             <div class="page-header-section" style="text-align: center;">
-                <h1><i class="fas fa-poll" style="margin-right: 10px;"></i>Control de Asistencia</h1>
-                <p>Gestión de Salidas Pedagógicas — Grupo Ambiental Green Force</p>
+                <h1><i class="fas fa-poll" style="margin-right: 10px;"></i>Encuestas y Asistencia</h1>
+                <p>Investigación y salidas pedagógicas — Grupo Ambiental Green Force</p>
             </div>
+
+            <!-- ── Encuestas de investigación (enlazan a Google Forms) ── -->
+            <section class="p-4 sm:p-6 border-b" aria-labelledby="encuestas-title">
+                <div class="flex items-center justify-between gap-2 mb-1">
+                    <h2 id="encuestas-title" class="text-lg font-bold text-gray-800"><i class="fas fa-clipboard-list"></i> Encuesta de Conciencia Ambiental</h2>
+                    <button id="encuestas-edit-btn" onclick="toggleEncuestasEditor()" class="text-sm text-emerald-400 hover:text-emerald-300 font-semibold" style="display: none;">
+                        <i class="fas fa-link"></i> Configurar enlaces
+                    </button>
+                </div>
+                <p class="text-sm text-gray-500 mb-4">
+                    Investigación doctoral UNADE. Responde con tu <strong>código de estudiante</strong> (no escribas tu nombre)
+                    y usa el mismo código en la encuesta inicial y en la final. No hay respuestas correctas ni incorrectas.
+                </p>
+
+                <div id="encuestas-grid" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+
+                <!-- Editor de enlaces (solo admin / líder) -->
+                <div id="encuestas-editor" class="mt-4 p-4 rounded-lg bg-white" style="display: none;">
+                    <p class="text-sm text-gray-500 mb-3">
+                        Pega el enlace <strong>"Compartir con estudiantes"</strong> que imprime tu script de Google Apps Script
+                        (empieza por <code>https://docs.google.com/forms/</code> o <code>https://forms.gle/</code>).
+                    </p>
+                    <div id="encuestas-editor-fields" class="flex flex-col gap-3"></div>
+                    <div class="flex justify-end gap-2 mt-3">
+                        <button onclick="toggleEncuestasEditor()" class="px-4 py-2 rounded-lg text-gray-500 hover:text-gray-800 font-semibold">Cancelar</button>
+                        <button onclick="guardarEncuestas()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-5 rounded-lg transition">
+                            <i class="fas fa-save"></i> Guardar enlaces
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <h2 class="text-lg font-bold text-gray-800 px-4 sm:px-6 pt-4"><i class="fas fa-user-check"></i> Control de Asistencia</h2>
 
             <!-- Métricas en Tiempo Real -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4 p-4 sm:p-6 bg-blue-50 border-b">
@@ -349,6 +382,7 @@
                 adminTools.style.display = canEditForm ? 'flex' : 'none';
             }
             renderTable(); // Re-render for switch state
+            renderEncuestas();
         });
 
         // ── Indicador de estado ──────────────────────────────────────────────
@@ -421,6 +455,127 @@
                 renderTable();
             }
         }
+
+        // ── Encuestas de investigación (Google Forms) ────────────────────────
+        // Los enlaces viven en Firestore para que un admin los cambie sin publicar la app
+        const DOC_ENCUESTAS = doc(db, 'asistencia_datos', 'encuestas');
+        const ENCUESTAS_DEFAULT = [
+            {
+                key: 'pre',
+                titulo: 'Encuesta inicial (PRE)',
+                descripcion: 'Antes de las actividades: 20 afirmaciones en 4 dimensiones (cognitiva, afectiva, conativa y activa) y 2 preguntas abiertas.',
+                icono: 'fa-seedling',
+                url: '',
+                abierta: false
+            },
+            {
+                key: 'post',
+                titulo: 'Encuesta final (POST)',
+                descripcion: 'Al terminar: las mismas 20 afirmaciones, tu experiencia con la app Green Force y 2 preguntas abiertas.',
+                icono: 'fa-tree',
+                url: '',
+                abierta: false
+            }
+        ];
+        let encuestas = ENCUESTAS_DEFAULT.map(e => ({ ...e }));
+
+        function isGoogleFormUrl(url) {
+            return /^https:\/\/(docs\.google\.com\/forms\/|forms\.gle\/)/.test(url);
+        }
+
+        function escapeHtml(text) {
+            return String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+        }
+
+        async function loadEncuestas() {
+            try {
+                const snap = await getDoc(DOC_ENCUESTAS);
+                const guardadas = snap.exists() ? (snap.data().lista || []) : [];
+                encuestas = ENCUESTAS_DEFAULT.map(def => ({ ...def, ...(guardadas.find(g => g.key === def.key) || {}) }));
+            } catch (err) {
+                console.error('Error cargando encuestas:', err);
+            }
+            renderEncuestas();
+        }
+
+        function renderEncuestas() {
+            const grid = document.getElementById('encuestas-grid');
+            const editBtn = document.getElementById('encuestas-edit-btn');
+            if (editBtn) editBtn.style.display = canEditForm ? 'inline-block' : 'none';
+            if (!grid) return;
+
+            grid.innerHTML = encuestas.map(enc => {
+                const disponible = enc.abierta && isGoogleFormUrl(enc.url);
+                const estado = disponible
+                    ? '<span class="text-xs font-bold px-2 py-1 rounded-full" style="background: rgba(16,185,129,0.2); color: #6ee7b7;">Abierta</span>'
+                    : `<span class="text-xs font-bold px-2 py-1 rounded-full" style="background: rgba(255,255,255,0.08); color: #9ca3af;">${enc.url ? 'Cerrada' : 'Próximamente'}</span>`;
+                const boton = disponible
+                    ? `<a href="${escapeHtml(enc.url)}" target="_blank" rel="noopener noreferrer"
+                          class="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg transition w-full">
+                          <i class="fas fa-pen"></i> Responder encuesta
+                       </a>`
+                    : `<button disabled class="inline-flex items-center justify-center gap-2 font-bold py-2 px-4 rounded-lg w-full cursor-not-allowed"
+                          style="background: rgba(255,255,255,0.06); color: #6b7280;">
+                          <i class="fas fa-lock"></i> Aún no disponible
+                       </button>`;
+                return `
+                    <div class="bg-white p-4 rounded-lg shadow-sm flex flex-col gap-3">
+                        <div class="flex items-start justify-between gap-2">
+                            <h3 class="font-bold text-gray-800"><i class="fas ${enc.icono}" style="color: #34d399;"></i> ${escapeHtml(enc.titulo)}</h3>
+                            ${estado}
+                        </div>
+                        <p class="text-sm text-gray-500 flex-1">${escapeHtml(enc.descripcion)}</p>
+                        ${boton}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        window.toggleEncuestasEditor = () => {
+            const editor = document.getElementById('encuestas-editor');
+            if (!editor || !canEditForm) return;
+            const opening = editor.style.display === 'none';
+            editor.style.display = opening ? 'block' : 'none';
+            if (!opening) return;
+            document.getElementById('encuestas-editor-fields').innerHTML = encuestas.map(enc => `
+                <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+                    <label class="font-bold text-gray-700 sm:w-48" for="enc-url-${enc.key}">${escapeHtml(enc.titulo)}</label>
+                    <input id="enc-url-${enc.key}" type="url" value="${escapeHtml(enc.url)}" placeholder="https://docs.google.com/forms/d/e/.../viewform"
+                           class="border rounded-md px-3 py-2 flex-1 outline-none focus:ring-2 focus:ring-emerald-500"
+                           style="background: rgba(255,255,255,0.06); color: #f3f4f6; border-color: rgba(255,255,255,0.12);" />
+                    <label class="flex items-center gap-2 text-sm text-gray-700 whitespace-nowrap">
+                        <input id="enc-open-${enc.key}" type="checkbox" ${enc.abierta ? 'checked' : ''} /> Abierta
+                    </label>
+                </div>
+            `).join('');
+        };
+
+        window.guardarEncuestas = async () => {
+            if (!canEditForm) return;
+            const nuevas = encuestas.map(enc => ({
+                ...enc,
+                url: document.getElementById(`enc-url-${enc.key}`).value.trim(),
+                abierta: document.getElementById(`enc-open-${enc.key}`).checked
+            }));
+            const invalida = nuevas.find(enc => enc.url && !isGoogleFormUrl(enc.url));
+            if (invalida) {
+                setStatus(`El enlace de "${invalida.titulo}" no es de Google Forms`, 'error');
+                return;
+            }
+            setStatus('Guardando encuestas…', 'saving');
+            try {
+                await setDoc(DOC_ENCUESTAS, {
+                    lista: nuevas.map(({ key, url, abierta }) => ({ key, url, abierta }))
+                });
+                encuestas = nuevas;
+                document.getElementById('encuestas-editor').style.display = 'none';
+                renderEncuestas();
+                setStatus('Enlaces de encuestas guardados', 'saved');
+            } catch (err) {
+                console.error('Error guardando encuestas:', err);
+                setStatus('Error al guardar las encuestas', 'error');
+            }
+        };
 
         // ── Render ───────────────────────────────────────────────────────────
         function renderTable() {
@@ -704,6 +859,7 @@
         // ── Iniciar ──────────────────────────────────────────────────────────
         document.getElementById('filter-grado').addEventListener('change', renderTable);
         loadData();
+        loadEncuestas();
     </script>
 </body>
 </html>
